@@ -6,9 +6,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const key = `paste:${params.id}`;
+  const { id } = await context.params;
+  const key = `paste:${id}`;
+
   const data = await redis.hgetall<Record<string, string>>(key);
 
   if (!data || !data.content) {
