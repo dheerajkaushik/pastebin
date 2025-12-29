@@ -3,27 +3,33 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 async function getPaste(id: string) {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`;
+  // Determine the base URL dynamically
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+    ? process.env.NEXT_PUBLIC_BASE_URL
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000";
 
-  const res = await fetch(
-      `${process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000"}/api/pastes/${id}`,
-      {
-    cache: "no-store",
-  });
+  try {
+    const res = await fetch(`${baseUrl}/api/pastes/${id}`, {
+      cache: "no-store",
+    });
 
-  if (!res.ok) return null;
-  return res.json();
+    if (!res.ok) return null;
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching paste:", error);
+    return null;
+  }
 }
-
 
 export default async function PastePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>; // 1. Update Type to Promise
 }) {
-  const data = await getPaste(params.id);
+  const { id } = await params; // 2. Await the params
+  const data = await getPaste(id);
 
   if (!data) notFound();
 
