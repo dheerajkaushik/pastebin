@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
 import { nowMs } from "@/lib/time";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await context.params;
-  const key = `paste:${id}`;
+  const key = `paste:${params.id}`;
 
-  const data = await redis.hgetall(key);
+  const data = await redis.hgetall<Record<string, string>>(key);
 
   if (!data || !data.content) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -18,26 +18,27 @@ export async function GET(
 
   const currentTime = nowMs(request.headers);
 
+  // TTL check
   if (data.expires_at && currentTime > Number(data.expires_at)) {
     return NextResponse.json({ error: "Expired" }, { status: 404 });
   }
 
-  if (data.max_views !== null) {
-    if (Number(data.views) >= Number(data.max_views)) {
-      return NextResponse.json(
-        { error: "View limit exceeded" },
-        { status: 404 }
-      );
-    }
+  const maxViews = data.max_views ? Number(data.max_views) : null;
+  const views = data.views ? Number(data.views) : 0;
+
+  // View limit check
+  if (maxViews !== null && views >= maxViews) {
+    return NextResponse.json(
+      { error: "View limit exceeded" },
+      { status: 404 }
+    );
   }
 
   // Atomic increment
   const newViews = await redis.hincrby(key, "views", 1);
 
   const remainingViews =
-    data.max_views !== null
-      ? Math.max(0, Number(data.max_views) - newViews)
-      : null;
+    maxViews !== null ? Math.max(0, maxViews - newViews) : null;
 
   return NextResponse.json({
     content: data.content,
