@@ -3,13 +3,18 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 async function getPaste(id: string) {
-  const res = await fetch(`/api/pastes/${id}`, {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`;
+
+  const res = await fetch(`${baseUrl}/api/pastes/${id}`, {
     cache: "no-store",
   });
 
   if (!res.ok) return null;
   return res.json();
 }
+
 
 export default async function PastePage({
   params,
