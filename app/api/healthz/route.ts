@@ -1,5 +1,8 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
+
+
 
 export async function GET() {
   try {

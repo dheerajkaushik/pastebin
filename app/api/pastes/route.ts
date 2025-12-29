@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { redis } from "@/lib/redis";
+export const dynamic = "force-dynamic";
+
 
 export async function POST(req: Request) {
   try {
