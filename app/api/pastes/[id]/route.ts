@@ -9,7 +9,6 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const key = `paste:${params.id}`;
-
   const data = await redis.hgetall<Record<string, string>>(key);
 
   if (!data || !data.content) {
@@ -18,7 +17,6 @@ export async function GET(
 
   const currentTime = nowMs(request.headers);
 
-  // TTL check
   if (data.expires_at && currentTime > Number(data.expires_at)) {
     return NextResponse.json({ error: "Expired" }, { status: 404 });
   }
@@ -26,7 +24,6 @@ export async function GET(
   const maxViews = data.max_views ? Number(data.max_views) : null;
   const views = data.views ? Number(data.views) : 0;
 
-  // View limit check
   if (maxViews !== null && views >= maxViews) {
     return NextResponse.json(
       { error: "View limit exceeded" },
@@ -34,15 +31,12 @@ export async function GET(
     );
   }
 
-  // Atomic increment
   const newViews = await redis.hincrby(key, "views", 1);
-
-  const remainingViews =
-    maxViews !== null ? Math.max(0, maxViews - newViews) : null;
 
   return NextResponse.json({
     content: data.content,
-    remaining_views: remainingViews,
+    remaining_views:
+      maxViews !== null ? Math.max(0, maxViews - newViews) : null,
     expires_at: data.expires_at
       ? new Date(Number(data.expires_at)).toISOString()
       : null,
