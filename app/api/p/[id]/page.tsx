@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 async function getPaste(id: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/api/pastes/${id}`,
+    `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/pastes/${id}`,
     { cache: "no-store" }
   );
 
@@ -10,7 +10,7 @@ async function getPaste(id: string) {
   return res.json();
 }
 
-export default async function PastePage({ params }: any) {
+export default async function PastePage({ params }: { params: { id: string } }) {
   const data = await getPaste(params.id);
 
   if (!data) notFound();
