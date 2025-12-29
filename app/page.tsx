@@ -18,6 +18,13 @@ export default function Home() {
       }),
     });
 
+    if (!res.ok) {
+      const text = await res.text();
+      alert("Failed to create paste");
+      console.error(text);
+      return;
+    }
+
     const data = await res.json();
     setUrl(data.url);
   }
