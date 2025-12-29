@@ -7,7 +7,9 @@ async function getPaste(id: string) {
     process.env.NEXT_PUBLIC_BASE_URL ||
     process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`;
 
-  const res = await fetch(`${baseUrl}/api/pastes/${id}`, {
+  const res = await fetch(
+      `${process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000"}/api/pastes/${id}`,
+      {
     cache: "no-store",
   });
 
