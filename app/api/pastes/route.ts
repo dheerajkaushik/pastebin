@@ -1,67 +1,49 @@
-import { NextResponse } from "next/server";
-import { nanoid } from "nanoid";
+import { NextRequest, NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
+import { nowMs } from "@/lib/time";
+
 export const dynamic = "force-dynamic";
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id;
+  const key = `paste:${id}`;
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const { content, ttl_seconds, max_views } = body;
+  const data = await redis.hgetall(key);
 
-    if (!content || typeof content !== "string" || !content.trim()) {
+  if (!data || !data.content) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const currentTime = nowMs(request.headers);
+
+  if (data.expires_at && currentTime > Number(data.expires_at)) {
+    return NextResponse.json({ error: "Expired" }, { status: 404 });
+  }
+
+  if (data.max_views !== null) {
+    if (Number(data.views) >= Number(data.max_views)) {
       return NextResponse.json(
-        { error: "Invalid content" },
-        { status: 400 }
+        { error: "View limit exceeded" },
+        { status: 404 }
       );
     }
+  }
 
-    if (
-      ttl_seconds !== undefined &&
-      (!Number.isInteger(ttl_seconds) || ttl_seconds < 1)
-    ) {
-      return NextResponse.json(
-        { error: "Invalid ttl_seconds" },
-        { status: 400 }
-      );
-    }
+  const newViews = await redis.hincrby(key, "views", 1);
 
-    if (
-      max_views !== undefined &&
-      (!Number.isInteger(max_views) || max_views < 1)
-    ) {
-      return NextResponse.json(
-        { error: "Invalid max_views" },
-        { status: 400 }
-      );
-    }
-
-    const id = nanoid(10);
-    const expiresAt = ttl_seconds
-      ? Date.now() + ttl_seconds * 1000
+  const remainingViews =
+    data.max_views !== null
+      ? Math.max(0, Number(data.max_views) - newViews)
       : null;
 
-    await redis.hset(`paste:${id}`, {
-      content,
-      views: 0,
-      max_views: max_views ?? null,
-      expires_at: expiresAt,
-    });
-
-    if (ttl_seconds) {
-      await redis.expire(`paste:${id}`, ttl_seconds);
-    }
-
-    return NextResponse.json({
-      id,
-      url: `${process.env.NEXT_PUBLIC_BASE_URL}/p/${id}`,
-    });
-  } catch (err) {
-    console.error("POST /api/pastes failed:", err);
-
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    content: data.content,
+    remaining_views: remainingViews,
+    expires_at: data.expires_at
+      ? new Date(Number(data.expires_at)).toISOString()
+      : null,
+  });
 }
